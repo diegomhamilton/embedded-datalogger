@@ -1,6 +1,7 @@
 #include "mbed.h"
 #include "SDBlockDevice.h"
 #include "FATFileSystem.h"
+#include "mcu_config.h"
 
 #define RETRY_SD_INIT_MS 1000
 
@@ -8,13 +9,13 @@
 #define DISABLED 0
 
 /* Comment/Uncomment the following lines to enable/disable debug messages at the console */
-// #define DEBUG_PRINT ENABLED
-#define DEBUG_PRINT DISABLED
+#define DEBUG_PRINT ENABLED
+// #define DEBUG_PRINT DISABLED
 
 /* LED is currently being used as SD_SCLK */
 DigitalOut led(PC_7);
 BufferedSerial pc(USBTX, USBRX, 115200);
-SDBlockDevice sd(D11, D12, D13, D10);
+SDBlockDevice sd(SPI_MOSI_PIN, SPI_MISO_PIN, SPI_SCLK_PIN, SPI_CS_PIN);
 FATFileSystem fs("sd", &sd);
 
 /* Attach printf() to serial */
