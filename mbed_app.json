@@ -1,0 +1,8 @@
+{
+    "target_overrides": {
+        "*": {
+            "target.components_add" : ["SD"],
+            "target.features_add" : ["STORAGE"]
+        }
+    }
+}
