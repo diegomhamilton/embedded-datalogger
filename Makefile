@@ -93,6 +93,7 @@ CHIBIOS  := ../../Chibios_20.3.1
 CONFDIR  := ./cfg
 BUILDDIR := ./build
 DEPDIR   := ./.dep
+
 # Licensing files.
 include $(CHIBIOS)/os/license/license.mk
 # Startup files.
@@ -114,7 +115,8 @@ include $(CHIBIOS)/test/oslib/oslib_test.mk
 include $(CHIBIOS)/os/hal/lib/streams/streams.mk
 # include $(CHIBIOS)/os/various/shell/shell.mk
 include $(CHIBIOS)/os/various/fatfs_bindings/fatfs.mk
-
+# User files
+include ./usr/user.mk
 
 # Define linker script file here
 LDSCRIPT= $(STARTUPLD)/STM32F103xB.ld
@@ -123,6 +125,7 @@ LDSCRIPT= $(STARTUPLD)/STM32F103xB.ld
 # setting.
 CSRC = $(ALLCSRC) \
        $(TESTSRC) \
+       $(USERSRC) \
        main.c
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
@@ -136,7 +139,7 @@ ASMSRC = $(ALLASMSRC)
 ASMXSRC = $(ALLXASMSRC)
 
 # Inclusion directories.
-INCDIR = $(CONFDIR) $(ALLINC) $(TESTINC) 
+INCDIR = $(CONFDIR) $(ALLINC) $(TESTINC) $(USERINC)
 
 # Define C warning options here.
 CWARN = -Wall -Wextra -Wundef -Wstrict-prototypes
