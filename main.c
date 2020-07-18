@@ -93,6 +93,45 @@ static const GPTConfig xTIM3Config = {
 /*===========================================================================*/
 void logger_start(void);
 
+
+/*===========================================================================*/
+/* Threads.                                                    */
+/*===========================================================================*/
+
+/* SD Logging Thread */
+thread_t *sd_logging_thread;
+#define EVT_ADC_HALF_BUFFER EVENT_MASK(0)
+#define EVT_ADC_FULL_BUFFER EVENT_MASK(1)
+
+static THD_WORKING_AREA(waLogThread, 2048);
+static THD_FUNCTION(LogThread, arg) {
+    chprintf((BaseSequentialStream *)&SD1, "Enter Logging thread...\r\n");
+    /* Error check variables */
+    FRESULT err;
+    uint32_t bw;
+    /* File pointers */
+    FIL fp_analog, fp_digital, fp_imu, fp_can, fp_gps;
+    char filename[10] = "/an.dat";
+
+    err = f_open(&fp_analog, filename, FA_CREATE_NEW | FA_WRITE);
+    f_close(&fp_analog);
+
+    err = f_open(&fp_analog, filename, FA_OPEN_APPEND | FA_WRITE);
+
+    while (true) {
+        eventmask_t evt = chEvtWaitAny(ALL_EVENTS);
+        
+        if (evt & EVT_ADC_HALF_BUFFER) {
+            f_write(&fp_analog, (void *)io_analog_buffer, 512, (UINT *)&bw);
+        }
+        else if (evt & EVT_ADC_FULL_BUFFER) {
+            f_write(&fp_analog, (void *)(&io_analog_buffer[32]), 512, (UINT *)&bw);
+        }
+        
+        chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
+    }
+}
+
 /*
 * Application entry point.
 */
@@ -116,19 +155,21 @@ int main(void) {
 
     bool sd_init_succeed = sd_init(&MMCD1, &mmccfg);
 
-    FRESULT err;
+    sd_logging_thread = chThdCreateStatic(waLogThread, sizeof(waLogThread), NORMALPRIO + 2, LogThread, NULL);
 
-    char b[1000];
-    char c[12] = "/oi123.txt";
-    // c[0] = 0;
-    b[0] = 0;
+    // FRESULT err;
 
-    FIL fp;
-    uint32_t bw;
-    err = f_open(&fp, c, FA_CREATE_NEW | FA_WRITE);
-    f_write(&fp, (void *)b, sizeof(b), (UINT *)&bw);
-    chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
-    f_close(&fp);
+    // char b[1000];
+    // char c[12] = "/oi123.txt";
+    // // c[0] = 0;
+    // b[0] = 0;
+
+    // FIL fp;
+    // uint32_t bw;
+    // err = f_open(&fp, c, FA_CREATE_NEW | FA_WRITE);
+    // f_write(&fp, (void *)b, sizeof(b), (UINT *)&bw);
+    // chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
+    // f_close(&fp);
     // scan_files((BaseSequentialStream *)&SD1, (char *)&b);
     chprintf((BaseSequentialStream *)&SD1, "Thread was terminated\r\n");
 
@@ -268,11 +309,18 @@ static void io_adc_error_callback(ADCDriver *adcp, adcerror_t err) {
 }
 
 void io_adc_conv_callback(ADCDriver *adcp) {
-    //TODO: Implement Analog readings
+    eventmask_t events = 0;
+
     if (adcIsBufferComplete(adcp)) {
         /* Handle DMA full buffer complete */
+        events |= EVT_ADC_FULL_BUFFER;
     } else {
         /* Handle DMA half buffer complete */
+        events |= EVT_ADC_HALF_BUFFER;
     }
+
+    chSysLockFromISR();
+    chEvtSignalI(sd_logging_thread, events);
+    chSysUnlockFromISR();
     palTogglePad(IOPORT3, 13);
 }
