@@ -28,3 +28,9 @@ tags
 # Visual Studio Code
 .vscode/
 
+# Build folders
+./build/
+.dep/
+
+# Zip files
+*.zip

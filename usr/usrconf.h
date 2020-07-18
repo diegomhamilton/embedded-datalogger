@@ -16,31 +16,4 @@
 #define SPI_DRIVER      (SPIDriver *)&SPID2
 #endif
 
-/*
- * SPI Configurations
- *
- * Maximum speed SPI configuration (18MHz, CPHA=0, CPOL=0, MSb first).
- */
-static const SPIConfig hs_spicfg = {
-  false,
-  NULL,
-  SPI_CS_PORT,
-  SPI_CS_PIN,
-  0,
-  0
-};
-
-/*
- * Low speed SPI configuration (281.250kHz, CPHA=0, CPOL=0, MSb first).
- */
-static const SPIConfig ls_spicfg = {
-  false,
-  NULL,
-  SPI_CS_PORT,
-  SPI_CS_PIN,
-  SPI_CR1_BR_2 | SPI_CR1_BR_1,
-  0
-};
-
-
 #endif
