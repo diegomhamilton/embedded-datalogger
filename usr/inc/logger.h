@@ -6,9 +6,11 @@
 #include "chprintf.h"
 #include "usrconf.h"
 #include "ff.h"
+#include "logger_timing.h"
+#include "logger_analog_ch.h"
 
 /*
- * Block ready to be saved events.
+ * Events to wake logger thread when a block is ready to be saved.
  */
 #define EVT_ADC_HALF_BUFFER EVENT_MASK(0)   // ADC Half Buffer complete event
 #define EVT_ADC_FULL_BUFFER EVENT_MASK(1)   // ADC Full Buffer complete event
@@ -21,9 +23,8 @@
 #define IO_DIGITAL_NUM_CHANNELS     8
 #define IO_ANALOG_BUFFER_DEPTH      60      // 60, 32 samples = 512 by. This gives us a half-buffer of 30 samples, leaving 4 bytes for timestamp (SD block has 512 bytes)
 
-#define TIMER_FREQUENCY     50000
 #define LOGGER_FREQUENCY    200
-#define LOGGER_TIMER_PRE    50000/LOGGER_FREQUENCY
+#define LOGGER_TIMER_PRE    TIMER_FREQUENCY/LOGGER_FREQUENCY
 
 /*
  * ADC buffer
@@ -78,12 +79,13 @@ static FRESULT scan_files(BaseSequentialStream *chp, char *path);
 bool sd_init(MMCDriver *mmcd, MMCConfig *mmcconfig);
 
 /*===========================================================================*/
-/* Logger Thread definitions.                                                              */
+/* Logger definitions.                                                              */
 /*===========================================================================*/
 
 extern thread_t *logging_thread;
 
 extern THD_WORKING_AREA(waLogThread, 2048);
 extern THD_FUNCTION(LogThread, arg);
+void logger_start(void);
 
 #endif
