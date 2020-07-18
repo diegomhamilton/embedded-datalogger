@@ -19,33 +19,8 @@
 #include "ch.h"
 #include "hal.h"
 #include "chprintf.h"
-#include "ff.h"
 #include "usrconf.h"
-
-/*===========================================================================*/
-/* SD related.                                                            */
-/*===========================================================================*/
-
-/**
- * @brief FS object.
- */
-static FATFS SDC_FS;
-#define is_fs_ready(fs) fs->fs_type
-
-/* 
-* MMC/SD over SPI driver configuration .
-*/
-static MMCConfig mmccfg = {SPI_DRIVER, &ls_spicfg, &hs_spicfg};
-MMCDriver MMCD1;
-void mmc_start_with_spi(MMCDriver *mmcd, MMCConfig *cfg);
-void spi_pin_config(void);
-
-/* 
-* SD/FS related functions.
-*/
-BYTE sd_mount(FATFS *fs, MMCDriver *mmcd);
-static FRESULT scan_files(BaseSequentialStream *chp, char *path);
-bool sd_init(MMCDriver *mmcd, MMCConfig *mmcconfig);
+#include "logger.h"
 
 /*===========================================================================*/
 /* Digital and Analog I/O configuration.                                     */
@@ -57,7 +32,6 @@ static void io_adc_error_callback(ADCDriver *adcp, adcerror_t err);
 void io_adc_conv_callback(ADCDriver *adcp);
 
 adcsample_t io_analog_buffer[IO_ANALOG_BUFFER_DEPTH * IO_ANALOG_NUM_CHANNELS];
-
 /*
  * ADC conversion group.
  * Mode:        Circular buffer, 8 samples of 2 channels, SW triggered.
@@ -93,44 +67,9 @@ static const GPTConfig xTIM3Config = {
 /*===========================================================================*/
 void logger_start(void);
 
-
 /*===========================================================================*/
 /* Threads.                                                    */
 /*===========================================================================*/
-
-/* SD Logging Thread */
-thread_t *sd_logging_thread;
-#define EVT_ADC_HALF_BUFFER EVENT_MASK(0)
-#define EVT_ADC_FULL_BUFFER EVENT_MASK(1)
-
-static THD_WORKING_AREA(waLogThread, 2048);
-static THD_FUNCTION(LogThread, arg) {
-    chprintf((BaseSequentialStream *)&SD1, "Enter Logging thread...\r\n");
-    /* Error check variables */
-    FRESULT err;
-    uint32_t bw;
-    /* File pointers */
-    FIL fp_analog, fp_digital, fp_imu, fp_can, fp_gps;
-    char filename[10] = "/an.dat";
-
-    err = f_open(&fp_analog, filename, FA_CREATE_NEW | FA_WRITE);
-    f_close(&fp_analog);
-
-    err = f_open(&fp_analog, filename, FA_OPEN_APPEND | FA_WRITE);
-
-    while (true) {
-        eventmask_t evt = chEvtWaitAny(ALL_EVENTS);
-        
-        if (evt & EVT_ADC_HALF_BUFFER) {
-            f_write(&fp_analog, (void *)io_analog_buffer, 512, (UINT *)&bw);
-        }
-        else if (evt & EVT_ADC_FULL_BUFFER) {
-            f_write(&fp_analog, (void *)(&io_analog_buffer[32]), 512, (UINT *)&bw);
-        }
-        
-        chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
-    }
-}
 
 /*
 * Application entry point.
@@ -153,9 +92,9 @@ int main(void) {
     sdStart(&SD1, NULL);
     chprintf((BaseSequentialStream *)&SD1, "Ahoy, i'm alive \r\n");
 
-    bool sd_init_succeed = sd_init(&MMCD1, &mmccfg);
+    bool sd_init_succeed = logger_init();
 
-    sd_logging_thread = chThdCreateStatic(waLogThread, sizeof(waLogThread), NORMALPRIO + 2, LogThread, NULL);
+    logging_thread = chThdCreateStatic(waLogThread, sizeof(waLogThread), NORMALPRIO + 2, LogThread, NULL);
 
     // FRESULT err;
 
@@ -178,102 +117,6 @@ int main(void) {
     while (true) {
         chThdSleepMilliseconds(500);
     }
-}
-
-/*
-* SD initialization.
-*/
-bool sd_init(MMCDriver *mmcd, MMCConfig *mmcconfig) {
-    mmc_start_with_spi(mmcd, mmcconfig);
-
-    /*
-    * On insertion SDC initialization and FS mount.
-    */
-    chprintf((BaseSequentialStream *)&SD1, "Trying to connect\r\n");
-    while (mmcConnect(mmcd)) {
-        chprintf((BaseSequentialStream *)&SD1, "Card not connected\r\n");
-        chThdSleepMilliseconds(1000);
-    }
-    chprintf((BaseSequentialStream *)&SD1, "Connected?\r\n");
-
-    BYTE mount_succeeded = sd_mount(&SDC_FS, mmcd);
-    if (mount_succeeded) {
-        return true;
-    } else {
-        chprintf((BaseSequentialStream *)&SD1, "Card isn't FAT formatted\r\n");
-        return false;
-    }
-}
-
-void mmc_start_with_spi(MMCDriver *mmcd, MMCConfig *cfg) {
-    spi_pin_config();
-    mmcObjectInit(mmcd);
-    mmcStart(mmcd, cfg);
-}
-
-void spi_pin_config(void) {
-    /*
-    * SPI I/O pins setup.
-    */
-    palSetPadMode(SPI_SCK_PORT, SPI_SCK_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL);   // SCK
-    palSetPadMode(SPI_MISO_PORT, SPI_MISO_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL); // MISO
-    palSetPadMode(SPI_MOSI_PORT, SPI_MOSI_PIN, PAL_MODE_STM32_ALTERNATE_PUSHPULL); // MOSI
-    palSetPadMode(SPI_CS_PORT, SPI_CS_PIN, PAL_MODE_OUTPUT_PUSHPULL);              // CS
-    palSetPad(SPI_CS_PORT, SPI_CS_PIN);                                            // Enable CS
-}
-
-BYTE sd_mount(FATFS *fs, MMCDriver *mmcd) {
-    FRESULT err;
-
-    err = f_mount(fs, "/", 1);
-    if (err != FR_OK) {
-        chprintf((BaseSequentialStream *)&SD1, "Disconnecting\r\n");
-        mmcDisconnect(mmcd);
-    } else {
-        chprintf((BaseSequentialStream *)&SD1, "TO suave\r\n");
-    }
-
-    return is_fs_ready(fs);
-}
-
-static FRESULT scan_files(BaseSequentialStream *chp, char *path) {
-    static FILINFO fno;
-    FRESULT res;
-    DIR dir;
-    size_t i;
-    char *fn;
-
-    chprintf(chp, "scanning files\r\n");
-    chThdSleepMilliseconds(1000);
-
-    res = f_opendir(&dir, path);
-    if (res == FR_OK) {
-        i = strlen(path);
-        while (((res = f_readdir(&dir, &fno)) == FR_OK) && fno.fname[0]) {
-            if (FF_FS_RPATH && fno.fname[0] == '.') {
-                chprintf(chp, "first if\r\n");
-                continue;
-            }
-
-            fn = fno.fname;
-            if (fno.fattrib & AM_DIR) {
-                *(path + i) = '/';
-                strcpy(path + i + 1, fn);
-                chprintf(chp, "before recursive call\r\n");
-                chThdSleepMilliseconds(200);
-                res = scan_files(chp, path);
-                chprintf(chp, "after recursive call\r\n");
-                chThdSleepMilliseconds(200);
-                
-                *(path + i) = '\0';
-                if (res != FR_OK)
-                    break;
-            } else {
-                chprintf(chp, "%s/%s\r\n", path, fn);
-            }
-        }
-    }
-    return res;
 }
 
 void logger_start(void) {
@@ -320,7 +163,7 @@ void io_adc_conv_callback(ADCDriver *adcp) {
     }
 
     chSysLockFromISR();
-    chEvtSignalI(sd_logging_thread, events);
+    chEvtSignalI(logging_thread, events);
     chSysUnlockFromISR();
     palTogglePad(IOPORT3, 13);
 }
