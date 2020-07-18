@@ -42,6 +42,15 @@ bool logger_init(void) {
     return sd_init(&MMCD1, &mmccfg);
 }
 
+void logger_start(void) {
+    palSetPadMode(IOPORT3, 13, PAL_MODE_OUTPUT_PUSHPULL);
+    palSetPad(IOPORT3, 13);
+    palClearPad(IOPORT3, 13);
+    logger_timing_start();
+    logger_analog_ch_start();
+}
+
+
 /*
  * SD initialization.
  */
