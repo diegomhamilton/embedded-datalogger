@@ -42,6 +42,7 @@ int main(void) {
 
     while (true) {
         /* Currently the main thread doesn't executes tasks */
+        chprintf((BaseSequentialStream *)&SD1, "Block buffer occupancy: %d\r\n", buffer_occupancy(block_buffer));
         chThdSleepMilliseconds(500);
     }
 }

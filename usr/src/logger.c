@@ -5,31 +5,46 @@
  */
 thread_t *logging_thread;
 block_buffer_t block_buffer;
+binary_semaphore_t block_to_write_sem;
 
 THD_WORKING_AREA(waLogThread, 2048);
 THD_FUNCTION(LogThread, arg) {
     chprintf((BaseSequentialStream *)&SD1, "Enter Logging thread...\r\n");
     /* Error check variables */
-    FRESULT err;
+    FRESULT res;
     uint32_t bw;
     /* File pointers */
     FIL fp;
+    block_element_t tmp_block;
+    chBSemObjectInit(&block_to_write_sem, true);
+
+    chprintf((BaseSequentialStream *)&SD1, "Analog buffer address %p\r\n", io_analog_buffer);
 
     while (true) {
-        eventmask_t evt = chEvtWaitAny(ALL_EVENTS);
-        chprintf((BaseSequentialStream *)&SD1, "Opening file: %34s\r\n", filepaths[0]);
-        err = f_open(&fp, filepaths[0], FA_OPEN_APPEND | FA_WRITE);
-
-        if (evt & EVT_ADC_HALF_BUFFER) {
-            f_write(&fp, (void *)io_analog_buffer, 512, (UINT *)&bw);
+        chprintf((BaseSequentialStream *)&SD1, "Waiting for block\r\n");
+        msg_t msg = chBSemWaitTimeout(&block_to_write_sem, TIME_MS2I(500));
+        if (msg == MSG_TIMEOUT) {
+            continue;
         }
-        else if (evt & EVT_ADC_FULL_BUFFER) {
-            f_write(&fp, (void *)(&io_analog_buffer[32]), 512, (UINT *)&bw);
+        chprintf((BaseSequentialStream *)&SD1, "Block received\r\n");
+
+        systime_t start = 0, write1 = 0, write2 = 0, end = 0;
+        if(!is_buffer_empty(block_buffer)) {
+            buffer_pop(block_buffer, tmp_block);
+
+            chprintf((BaseSequentialStream *)&SD1, "Opening file: %20s\r\n", filepaths[tmp_block.src]);
+            start = chVTGetSystemTimeX();
+            res = f_open(&fp, filepaths[tmp_block.src], FA_OPEN_APPEND | FA_WRITE);
+            if (res == FR_OK) {
+                write1 = chVTGetSystemTimeX();
+                f_write(&fp, tmp_block.blocks, 512*tmp_block.blocks_tw, (UINT *)&bw);
+                write2 = chVTGetSystemTimeX();
+            }
+            f_close(&fp);
+            end = chVTGetSystemTimeX();
+            chprintf((BaseSequentialStream *)&SD1, "total time = %d ms, write time = %d us, open = %d, written %d in block %p\r\n", TIME_I2MS(end-start), TIME_I2US(write2-write1), res, bw, tmp_block.blocks);
         }
-
-        f_close(&fp);
-
-        chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
+        chprintf((BaseSequentialStream *)&SD1, "Next iteration\r\n");
     }
 }
 

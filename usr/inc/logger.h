@@ -6,14 +6,11 @@
 #include "chprintf.h"
 #include "usrconf.h"
 #include "ff.h"
-
-/* Include buffer library and set buffer to circular mode. */
-#define BUFFER_OVERWRITE_OLDEST_WHEN_FULL
-#include "buffer.h"
 /* Include data logger channels */
 #include "loggerconf.h"
 #include "logger_timing.h"
 #include "logger_analog_ch.h"
+#include "buffer.h"
 
 /*===========================================================================*/
 /* SD related settings.                                                              */
@@ -74,15 +71,6 @@ extern THD_WORKING_AREA(waLogThread, 2048);
 extern THD_FUNCTION(LogThread, arg);
 void logger_start(void);
 
-
-#define NUM_OF_FILES    5
-
-#define FIL_ANALOG      0
-#define FIL_DIGITAL     1
-#define FIL_IMU         2
-#define FIL_GPS         3
-#define FIL_CAN         4
-
 static const char filenames[5][12] = {
     "analog.dat",
     "digital.dat",
@@ -95,8 +83,5 @@ static const char filenames[5][12] = {
 #define FULLPATH_LEN    30      // Max. mumber of characters for full path
 
 static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
-
-extern adcsample_t io_analog_buffer[IO_ANALOG_BUFFER_DEPTH * IO_ANALOG_NUM_CHANNELS];
-
 
 #endif

@@ -1,17 +1,24 @@
 #ifndef _LOGGER_CONF_H
 #define _LOGGER_CONF_H
 
-#include "buffer.h"
+#define BUFFER_POP_EMPTY_ACTION(buf, c) ({})
 
+/* Include buffer library and set buffer to circular mode. */
+#define BUFFER_OVERWRITE_OLDEST_WHEN_FULL
+#include "buffer.h"
 
 /*
  * Block buffer definitions.
  */
 
-typedef uint8_t block_t[512];
+typedef struct {
+    void* blocks;    // Pointer to block(s)
+    uint8_t blocks_tw;    // Blocks to write
+    uint8_t src;    // File index
+} block_element_t;
 
-#define BLOCK_BUFFER_SIZE       (uint8_t)16
-#define BLOCK_BUFFER_DEF(SIZE)  BUFFER_STRUCT_DEF(block_t, uint8_t, (SIZE))
+#define BLOCK_BUFFER_SIZE       16
+#define BLOCK_BUFFER_DEF(SIZE)  BUFFER_STRUCT_DEF(block_element_t, uint8_t, (SIZE))
 
 typedef BLOCK_BUFFER_DEF(BLOCK_BUFFER_SIZE) block_buffer_t;
 
@@ -24,8 +31,6 @@ extern block_buffer_t block_buffer;
 #define IO_DIGITAL_NUM_CHANNELS     8
 
 #define IO_ANALOG_NUM_CHANNELS      8
-#define IO_ANALOG_BUFFER_DEPTH      60      // 60, 32 samples = 512 by. This gives us a half-buffer of 30 samples, leaving 4 bytes for timestamp (SD block has 512 bytes)
-
 #define LOGGER_FREQUENCY            200
 #define LOGGER_TIMER_PRE            TIMER_FREQUENCY/LOGGER_FREQUENCY
 
@@ -33,7 +38,19 @@ extern block_buffer_t block_buffer;
 /* Events to wake logger thread when a block is ready to be saved.           */
 /*===========================================================================*/
 
-#define EVT_ADC_HALF_BUFFER EVENT_MASK(0)   // ADC Half Buffer complete event
-#define EVT_ADC_FULL_BUFFER EVENT_MASK(1)   // ADC Full Buffer complete event
+extern binary_semaphore_t block_to_write_sem;
+
+#define NUM_OF_FILES    5
+
+/*===========================================================================*/
+/* File index of channels definitions.                                       */
+/*===========================================================================*/
+
+#define FIL_ANALOG      0
+#define FIL_DIGITAL     1
+#define FIL_IMU         2
+#define FIL_GPS         3
+#define FIL_CAN         4
+
 
 #endif /* _LOGGER_CONF_H */

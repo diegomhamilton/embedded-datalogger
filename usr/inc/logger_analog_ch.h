@@ -9,6 +9,12 @@ void logger_analog_ch_start(void);
 static void io_adc_error_callback(ADCDriver *adcp, adcerror_t err);
 void io_adc_conv_callback(ADCDriver *adcp);
 
+/*
+ * 1 block (512 by) = 32 samples (16 by).
+ * We want to add timestamp in each block, so the maximum of samples is 31.
+ */
+#define IO_ANALOG_BUFFER_DEPTH      62
+
 extern adcsample_t io_analog_buffer[IO_ANALOG_BUFFER_DEPTH * IO_ANALOG_NUM_CHANNELS];
 /*
  * ADC conversion group.
