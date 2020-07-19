@@ -74,10 +74,11 @@ void spi_pin_config(void);
 * SD/FS related functions.
 */
 bool logger_init(void);
-BYTE sd_mount(FATFS *fs, MMCDriver *mmcd);
-static FRESULT scan_files(BaseSequentialStream *chp, char *path);
+FRESULT sd_mount(FATFS *fs, MMCDriver *mmcd);
+// static FRESULT scan_files(BaseSequentialStream *chp, char *path);
 bool sd_init(MMCDriver *mmcd, MMCConfig *mmcconfig);
-
+FRESULT init_files(void);
+FRESULT init_folders(char *path, size_t n);
 /*===========================================================================*/
 /* Logger definitions.                                                              */
 /*===========================================================================*/
@@ -87,5 +88,27 @@ extern thread_t *logging_thread;
 extern THD_WORKING_AREA(waLogThread, 2048);
 extern THD_FUNCTION(LogThread, arg);
 void logger_start(void);
+
+
+#define NUM_OF_FILES    5
+
+#define FIL_ANALOG      0
+#define FIL_DIGITAL     1
+#define FIL_IMU         2
+#define FIL_GPS         3
+#define FIL_CAN         4
+
+static const char filenames[5][12] = {
+    "analog.dat",
+    "digital.dat",
+    "IMU.dat",
+    "GPS.dat",
+    "CAN.dat"
+};
+
+#define DIRPATH_LEN     12      // Max. number of characters for directories path
+#define FULLPATH_LEN    30      // Max. mumber of characters for full path
+
+static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
 
 #endif
