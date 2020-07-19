@@ -1,20 +1,13 @@
 /*
-    ChibiOS - Copyright (C) 2006..2018 Giovanni Di Sirio
-
-    Licensed under the Apache License, Version 2.0 (the "License");
-    you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-*/
-
-#include <string.h>
+ * Embedded Logger v0
+ * Author: Diego Hamilton
+ *
+ * This project uses a STM32F103C8T6 and a SD card to store data of
+ * multiple channels, such as: analog sensors, digital level sensors,
+ * frequency sensors, CAN bus messages, IMU data (acceleration and
+ * angular speed) and GPS.
+ * 
+ */
 
 #include "ch.h"
 #include "hal.h"
@@ -23,49 +16,32 @@
 #include "logger.h"
 
 /*
-* Application entry point.
-*/
+ * Application entry point.
+ */
 int main(void) {
-    /*
-    * System initializations.
-    * - HAL initialization, this also initializes the configured device drivers
-    *   and performs the board-specific initializations.
-    * - Kernel initialization, the main() function becomes a thread and the
-    *   RTOS is active.
-    */
+    /* Hardware Abstraction Layer initialization */
     halInit();
+    /* ChibiOS initialization */
     chSysInit();
 
-    /*
-    * Activates the serial driver 1 using the driver default configuration.
-    * PA9(TX) and PA10(RX) are routed to USART1.
-    */
+    /* 
+     * Initialize Serial Driver 1 in the serial driver 1 with default configuration.
+     * Pins PA9(TX) and PA10(RX) are used.
+     */
     sdStart(&SD1, NULL);
-    chprintf((BaseSequentialStream *)&SD1, "Ahoy, i'm alive \r\n");
+    chprintf((BaseSequentialStream *)&SD1, "Ahoy, Logger is alive \r\n");
 
-    bool sd_init_succeed = logger_init();
-
-    logging_thread = chThdCreateStatic(waLogThread, sizeof(waLogThread), NORMALPRIO + 2, LogThread, NULL);
-
-    // FRESULT err;
-
-    // char b[1000];
-    // char c[12] = "/oi123.txt";
-    // // c[0] = 0;
-    // b[0] = 0;
-
-    // FIL fp;
-    // uint32_t bw;
-    // err = f_open(&fp, c, FA_CREATE_NEW | FA_WRITE);
-    // f_write(&fp, (void *)b, sizeof(b), (UINT *)&bw);
-    // chprintf((BaseSequentialStream *)&SD1, "open = %d, written %d\r\n", err, bw);
-    // f_close(&fp);
-    // scan_files((BaseSequentialStream *)&SD1, (char *)&b);
-    chprintf((BaseSequentialStream *)&SD1, "Thread was terminated\r\n");
-
-    logger_start();
+    /* Initialize Logger */
+    bool res = logger_init();
+    if (res == true) {
+        //TODO: add verification of "start logging" (maybe a button?)
+        /* If initialization succeeds, start logging thread and channels */
+        logging_thread = chThdCreateStatic(waLogThread, sizeof(waLogThread), NORMALPRIO + 2, LogThread, NULL);
+        logger_start();
+    }
 
     while (true) {
+        /* Currently the main thread doesn't executes tasks */
         chThdSleepMilliseconds(500);
     }
 }
