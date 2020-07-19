@@ -9,6 +9,9 @@
 #include "logger_timing.h"
 #include "logger_analog_ch.h"
 
+#define BUFFER_OVERWRITE_OLDEST_WHEN_FULL
+#include "buffer.h"
+
 /*
  * Events to wake logger thread when a block is ready to be saved.
  */
@@ -79,6 +82,7 @@ FRESULT sd_mount(FATFS *fs, MMCDriver *mmcd);
 bool sd_init(MMCDriver *mmcd, MMCConfig *mmcconfig);
 FRESULT init_files(void);
 FRESULT init_folders(char *path, size_t n);
+
 /*===========================================================================*/
 /* Logger definitions.                                                              */
 /*===========================================================================*/
@@ -110,5 +114,17 @@ static const char filenames[5][12] = {
 #define FULLPATH_LEN    30      // Max. mumber of characters for full path
 
 static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
+
+/*
+ * Block buffer definitions.
+ */
+
+typedef uint8_t block_t[512];
+
+#define BLOCK_BUFFER_DEF(SIZE)  BUFFER_STRUCT_DEF(block_t, uint8_t, SIZE)
+#define BLOCK_BUFFER_SIZE       16
+
+typedef BLOCK_BUFFER_DEF(BLOCK_BUFFER_SIZE) block_buffer_t;
+extern block_buffer_t block_buffer;
 
 #endif

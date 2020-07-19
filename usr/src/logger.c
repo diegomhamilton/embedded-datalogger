@@ -4,6 +4,7 @@
  * SD Logging Thread
  */
 thread_t *logging_thread;
+block_buffer_t block_buffer;
 
 THD_WORKING_AREA(waLogThread, 2048);
 THD_FUNCTION(LogThread, arg) {
@@ -50,7 +51,11 @@ void logger_start(void) {
     palSetPadMode(IOPORT3, 13, PAL_MODE_OUTPUT_PUSHPULL);
     palSetPad(IOPORT3, 13);
     palClearPad(IOPORT3, 13);
+    /* Reset buffer common to producers and consumers */
+    buffer_reset(block_buffer);
+    /* Start timers */
     logger_timing_start();
+    /* Start analog channels */
     logger_analog_ch_start();
 }
 
