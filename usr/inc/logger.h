@@ -6,33 +6,14 @@
 #include "chprintf.h"
 #include "usrconf.h"
 #include "ff.h"
-#include "logger_timing.h"
-#include "logger_analog_ch.h"
 
+/* Include buffer library and set buffer to circular mode. */
 #define BUFFER_OVERWRITE_OLDEST_WHEN_FULL
 #include "buffer.h"
-
-/*
- * Events to wake logger thread when a block is ready to be saved.
- */
-#define EVT_ADC_HALF_BUFFER EVENT_MASK(0)   // ADC Half Buffer complete event
-#define EVT_ADC_FULL_BUFFER EVENT_MASK(1)   // ADC Full Buffer complete event
-
-/*===========================================================================*/
-/* Analog I/O                                                                */
-/*===========================================================================*/
-
-#define IO_ANALOG_NUM_CHANNELS      8
-#define IO_DIGITAL_NUM_CHANNELS     8
-#define IO_ANALOG_BUFFER_DEPTH      60      // 60, 32 samples = 512 by. This gives us a half-buffer of 30 samples, leaving 4 bytes for timestamp (SD block has 512 bytes)
-
-#define LOGGER_FREQUENCY    200
-#define LOGGER_TIMER_PRE    TIMER_FREQUENCY/LOGGER_FREQUENCY
-
-/*
- * ADC buffer
- */
-extern adcsample_t io_analog_buffer[IO_ANALOG_BUFFER_DEPTH * IO_ANALOG_NUM_CHANNELS];
+/* Include data logger channels */
+#include "loggerconf.h"
+#include "logger_timing.h"
+#include "logger_analog_ch.h"
 
 /*===========================================================================*/
 /* SD related settings.                                                              */
@@ -115,16 +96,7 @@ static const char filenames[5][12] = {
 
 static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
 
-/*
- * Block buffer definitions.
- */
+extern adcsample_t io_analog_buffer[IO_ANALOG_BUFFER_DEPTH * IO_ANALOG_NUM_CHANNELS];
 
-typedef uint8_t block_t[512];
-
-#define BLOCK_BUFFER_DEF(SIZE)  BUFFER_STRUCT_DEF(block_t, uint8_t, SIZE)
-#define BLOCK_BUFFER_SIZE       16
-
-typedef BLOCK_BUFFER_DEF(BLOCK_BUFFER_SIZE) block_buffer_t;
-extern block_buffer_t block_buffer;
 
 #endif
