@@ -2,7 +2,7 @@
 #define _LOGGER_TIMING_H
 
 #include "hal.h"
-#include "logger.h"
+#include "loggerconf.h"
 
 void logger_timing_start(void);
 void io_timer_cb(void);
