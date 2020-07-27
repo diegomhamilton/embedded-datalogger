@@ -65,23 +65,14 @@ FRESULT init_folders(char *path, size_t n);
 /* Logger definitions.                                                              */
 /*===========================================================================*/
 
+#define FILENAME_LEN    12                                  // Max. number of characters for filename
+#define DIRNAME_LEN     FILENAME_LEN + 2                    // Max. number of characters for directories
+#define FULLPATH_LEN    FILENAME_LEN + DIRNAME_LEN + 4      // Max. mumber of characters for full path
+
 extern thread_t *logging_thread;
 
 extern THD_WORKING_AREA(waLogThread, 2048);
 extern THD_FUNCTION(LogThread, arg);
 void logger_start(void);
-
-static const char filenames[5][12] = {
-    "analog.dat",
-    "digital.dat",
-    "IMU.dat",
-    "GPS.dat",
-    "CAN.dat"
-};
-
-#define DIRPATH_LEN     12      // Max. number of characters for directories path
-#define FULLPATH_LEN    30      // Max. mumber of characters for full path
-
-static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
 
 #endif

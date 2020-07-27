@@ -7,6 +7,16 @@ thread_t *logging_thread;
 block_buffer_t block_buffer;
 binary_semaphore_t block_to_write_sem;
 
+static const char filenames[NUM_OF_FILES][FILENAME_LEN] = {
+    "analog.dat",
+    "digital.dat",
+    "IMU.dat",
+    "GPS.dat",
+    "CAN.dat"
+};
+
+static FIL fp_table[NUM_OF_FILES];
+
 THD_WORKING_AREA(waLogThread, 2048);
 THD_FUNCTION(LogThread, arg) {
     chprintf((BaseSequentialStream *)&SD1, "Enter Logging thread...\r\n");
@@ -32,17 +42,13 @@ THD_FUNCTION(LogThread, arg) {
         if(!is_buffer_empty(block_buffer)) {
             buffer_pop(block_buffer, tmp_block);
 
-            chprintf((BaseSequentialStream *)&SD1, "Opening file: %20s\r\n", filepaths[tmp_block.src]);
-            start = chVTGetSystemTimeX();
-            res = f_open(&fp, filepaths[tmp_block.src], FA_OPEN_APPEND | FA_WRITE);
-            if (res == FR_OK) {
-                write1 = chVTGetSystemTimeX();
-                f_write(&fp, tmp_block.blocks, 512*tmp_block.blocks_tw, (UINT *)&bw);
-                write2 = chVTGetSystemTimeX();
-            }
-            f_close(&fp);
+            chprintf((BaseSequentialStream *)&SD1, "Save at file: %d\r\n", tmp_block.src);
+            write1 = chVTGetSystemTimeX();
+            f_write(&fp_table[tmp_block.src], tmp_block.blocks, 512*tmp_block.blocks_tw, (UINT *)&bw);
+            write2 = chVTGetSystemTimeX();
+            f_sync(&fp_table[tmp_block.src]);
             end = chVTGetSystemTimeX();
-            chprintf((BaseSequentialStream *)&SD1, "total time = %d ms, write time = %d us, open = %d, written %d in block %p\r\n", TIME_I2MS(end-start), TIME_I2US(write2-write1), res, bw, tmp_block.blocks);
+            chprintf((BaseSequentialStream *)&SD1, "total time = %d ms, write time = %d us, open = %d, written %d in block %p\r\n", TIME_I2MS(end-write1), TIME_I2US(write2-write1), res, bw, tmp_block.blocks);
         }
         chprintf((BaseSequentialStream *)&SD1, "Next iteration\r\n");
     }
@@ -139,28 +145,27 @@ FRESULT sd_mount(FATFS *fs, MMCDriver *mmcd) {
     return res;
 }
 
-static char filepaths[NUM_OF_FILES][FULLPATH_LEN];
 /*
  * Initialize all folders and files used in current logger session.
  */
 FRESULT init_files(void) {
-    char dir[DIRPATH_LEN];
-    FIL fp;
+    char dir[DIRNAME_LEN];
+    char filepaths[NUM_OF_FILES][FULLPATH_LEN];
     FRESULT res;
     
-    res = init_folders(dir, DIRPATH_LEN);
+    res = init_folders(dir, DIRNAME_LEN);
     chprintf((BaseSequentialStream *)&SD1, "Folder %12s initialization RESULT = %d\r\n", dir, res);
     /* Initialize files if folder was succesfully created */
     if (res == FR_OK) {
         for(int i = 0; i < NUM_OF_FILES; i++) {
             chsnprintf(filepaths[i], FULLPATH_LEN, "/%s/%s", dir, filenames[i]);
             /* Create a new file and overwrite if existing */
-            res = f_open(&fp, filepaths[i], FA_CREATE_ALWAYS | FA_WRITE);
-            chprintf((BaseSequentialStream *)&SD1, "Initializing file: %30s, RESULT = %d\r\n", filepaths[i], res);
-            f_close(&fp);
+            res = f_open(&fp_table[i], filepaths[i], FA_CREATE_ALWAYS | FA_WRITE);
             if (res) {
                 chprintf((BaseSequentialStream *)&SD1, "Error creating file.\r\n");
                 break;
+            } else {
+                chprintf((BaseSequentialStream *)&SD1, "Initializing file: %30s, RESULT = %d\r\n", filepaths[i], res);
             }
         }
     }
