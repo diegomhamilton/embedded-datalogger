@@ -9,6 +9,7 @@ The channels logged are:
 - CAN messages
 
 ## Directory Structure
+```
   |-- Makefile
   |-- README.md
   |-- LICENSE
@@ -31,4 +32,4 @@ The channels logged are:
   |   |   |-- logger_timing.c
   |   |   `-- logger_analog_ch.c
   |-- main.c
- 
+``` 
